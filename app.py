@@ -6,10 +6,10 @@ from flask_cors import CORS
 
 # Configurações do Azure AD
 # ADICIONE CLIENT SC  E CLIENT ID DPS
-TENANT_ID = "1d390b0e-fddf-40eb-9c71-9aaab4f5c8d1"
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-SCOPE = ["User.Read", "GroupMember.Read.All"]  # Permissões necessárias
-REDIRECT_URI = "https://sso.grupotapajos.com.br/callback"
+#TENANT_ID = ""
+#AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+#SCOPE = ["User.Read", "GroupMember.Read.All"]  # Permissões necessárias
+#REDIRECT_URI = ""
 
 # Inicializa o aplicativo Flask
 app = Flask(__name__)
