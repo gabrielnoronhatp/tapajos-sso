@@ -5,8 +5,7 @@ from flask_cors import CORS
 
 
 # Configurações do Azure AD
-CLIENT_ID = "4ca15e42-c2a0-41df-81cd-58f485551533"
-CLIENT_SECRET = "e5a8Q~aSOX6woFojIuDCFR6ukR3aSvS6Iah31dfo"
+# ADICIONE CLIENT SC  E CLIENT ID DPS
 TENANT_ID = "1d390b0e-fddf-40eb-9c71-9aaab4f5c8d1"
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 SCOPE = ["User.Read", "GroupMember.Read.All"]  # Permissões necessárias
