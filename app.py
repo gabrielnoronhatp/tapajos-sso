@@ -5,15 +5,16 @@ from flask_cors import CORS
 
 
 # Configurações do Azure AD
-# ADICIONE CLIENT SC  E CLIENT ID DPS
-#TENANT_ID = ""
-#AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-#SCOPE = ["User.Read", "GroupMember.Read.All"]  # Permissões necessárias
-#REDIRECT_URI = ""
+CLIENT_ID = ""
+CLIENT_SECRET = ""
+TENANT_ID = ""
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+SCOPE = ["User.Read", "GroupMember.Read.All"]  # Permissões necessárias
+REDIRECT_URI = ""
 
 # Inicializa o aplicativo Flask
 app = Flask(__name__)
-app.secret_key = "93f7fea8e407169184cf8cdc6e7f01e"  # Substitua por uma chave secreta segura
+app.secret_key = ""  # Substitua por uma chave secreta segura
 CORS(app)  # Isso vai permitir requisições de qualquer domínio
 
 # Função para criar uma instância do cliente MSAL
