@@ -6,6 +6,8 @@ import requests
 from flask import Flask, redirect, url_for, session, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
+from db_helper import get_telfone
+from util import gerar_token, gerenciar_token, enviar_mensagem
 
 # Carregar variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -108,6 +110,22 @@ def profile():
         "user_info": user_info,
         "groups": groups_info.get("value", [])
     })
+
+
+
+
+
+@app.route('/get_token_autenticacao', methods=['POST'])
+def enviar_mensagem():    
+    data = request.get_json()
+    usuario = data.get('usuario')
+    telefone = get_telfone(usuario)
+    token = gerar_token()
+    tokens = gerenciar_token(usuario, token)
+    enviar_mensagem(telefone, tokens)
+    return jsonify({'token': tokens}), 200
+
+
 
 # Rota para logout
 @app.route('/logout')
