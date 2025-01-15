@@ -89,6 +89,12 @@ def callback():
         print("Erro ao obter token:", result)
         return jsonify(result), 400
 
+
+
+
+
+
+
 # Rota para obter informações do usuário
 @app.route('/profile')
 def profile():
@@ -110,7 +116,6 @@ def profile():
         "user_info": user_info,
         "groups": groups_info.get("value", [])
     })
-
 
 
 
