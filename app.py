@@ -1,30 +1,22 @@
-import os
-import base64
-import hashlib
+from flask import Flask, redirect, url_for, session, request, jsonify
 import msal
 import requests
-from flask import Flask, redirect, url_for, session, request, jsonify
-from flask_cors import CORS
-from dotenv import load_dotenv
-from db_helper import get_telfone
-from util import gerar_token, gerenciar_token, enviar_mensagem
-
-# Carregar variáveis de ambiente do arquivo .env
-load_dotenv()
+import jwt
+from db_helper import get_usuario_by_id, get_telfone
 
 # Configurações do Azure AD
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-TENANT_ID = os.getenv("TENANT_ID")
-AUTHORITY = os.getenv("AUTHORITY")
-SCOPE = ["User.Read", "GroupMember.Read.All"]  # Permissões necessárias
-REDIRECT_URI = os.getenv("REDIRECT_URI")
+CLIENT_ID = "4ca15e42-c2a0-41df-81cd-58f485551533"
+CLIENT_SECRET = "e5a8Q~aSOX6woFojIuDCFR6ukR3aSvS6Iah31dfo"
+TENANT_ID = "1d390b0e-fddf-40eb-9c71-9aaab4f5c8d1"
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+SCOPE = ["User.Read", "Group.Read.All", "User.ReadBasic.All", "User.Read.All"]
+REDIRECT_URI = "https://sso.grupotapajos.com.br/callback"
+
+
 
 # Inicializa o aplicativo Flask
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY")  # Usando a variável de ambiente
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
-
+app.secret_key = "#@sua_chave_secreta###"  # Substitua por uma chave secreta segura
 
 # Função para criar uma instância do cliente MSAL
 def get_msal_app():
@@ -33,12 +25,6 @@ def get_msal_app():
         authority=AUTHORITY,
         client_credential=CLIENT_SECRET,
     )
-
-# Função para gerar um code_verifier e code_challenge
-def generate_code_challenge():
-    code_verifier = base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8').rstrip("=")
-    code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).decode('utf-8').rstrip("=")
-    return code_verifier, code_challenge
 
 # Rota inicial para iniciar o processo de login
 @app.route('/')
@@ -49,53 +35,133 @@ def home():
 @app.route('/login')
 def login():
     msal_app = get_msal_app()
-    
-    # Gerar o code_verifier e code_challenge
-    code_verifier, code_challenge = generate_code_challenge()
-    session['code_verifier'] = code_verifier  # Armazene o code_verifier na sessão
-    
-    # Obter o URL de autorização com o PKCE
-    auth_url = msal_app.get_authorization_request_url(
-        SCOPE, 
-        redirect_uri=REDIRECT_URI,
-        code_challenge=code_challenge,
-        code_challenge_method="S256"
-    )
+    auth_url = msal_app.get_authorization_request_url(SCOPE, redirect_uri=REDIRECT_URI)
     return redirect(auth_url)
+
+
+
+
+def get_payload_jwt(access_token):
+
+    #try:
+    
+        headers = {"Authorization": f"Bearer {access_token}"}
+        # Obtém informações do usuário
+        user_info_response = requests.get("https://graph.microsoft.com/v1.0/me", headers=headers)
+        user_info = user_info_response.json()
+
+        # Obtém grupos do usuário
+        groups_response = requests.get("https://graph.microsoft.com/v1.0/me/memberOf", headers=headers)
+        groups_info = groups_response.json()
+
+        # Obtém a URL da foto de perfil do usuário
+        photo_response = requests.get("https://graph.microsoft.com/v1.0/me/photo/$value", headers=headers)
+        if photo_response.status_code == 200:
+            # A URL da foto de perfil (sendo mais realista para um sistema local/real seria salvar a foto e gerar um link)
+            photo_url = f"https://graph.microsoft.com/v1.0/me/photo/$value"
+        else:
+            photo_url = "Sem foto de perfil disponível"
+
+        # Simplificando o JSON para retornar apenas as informações necessárias
+        
+        print(user_info)
+        email = user_info.get('userPrincipalName')
+        username, domain = email.split('@')
+        
+        funcionario = get_usuario_by_id(username)
+        
+        if not funcionario:
+            cpf = None
+        else:
+            cpf = funcionario[0].get('cpf', None)
+            
+        profile_info = {
+            "nome": user_info.get('displayName'),
+            "email": email,
+            "username": username,
+            "cpf": cpf,
+            "grupos": [group["displayName"] for group in groups_info.get("value", [])],
+            "foto_perfil_url": photo_url,
+            "ad_token": access_token
+        }
+        
+        token = jwt.encode(profile_info, app.secret_key, algorithm="HS256")
+        return token
+    #except:
+    #    return None
+    
+
+
+
 
 # Rota de callback para processar a resposta de autenticação
 @app.route('/callback')
 def callback():
-    code = request.args.get('code')
-    if not code:
-        return "Código de autorização não encontrado.", 400
-    
-    code_verifier = session.pop('code_verifier', None)  # Recupere o code_verifier da sessão
-    if not code_verifier:
-        return "Code verifier not found.", 400
-    
     msal_app = get_msal_app()
-    result = msal_app.acquire_token_by_authorization_code(
-        code, 
-        scopes=SCOPE, 
-        redirect_uri=REDIRECT_URI,
-        code_verifier=code_verifier
-    )
+    code = request.args.get('code')
+    
+    # Solicita um token usando o código de autorização
+    result = msal_app.acquire_token_by_authorization_code(code, scopes=SCOPE, redirect_uri=REDIRECT_URI)
 
     if "access_token" in result:
-        session['access_token'] = result['access_token']
-        return redirect(url_for('profile'))
+        token = get_payload_jwt(result['access_token'])
+        external_url = f"http://10.2.10.17:2002/{token}"
+        return redirect(external_url)
     else:
-        print("Erro ao obter token:", result)
         return jsonify(result), 400
 
 
+def valid_token(token):
+
+    try:
+        decoded = jwt.decode(token, app.secret_key, algorithms=["HS256"])
+        return decoded
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+        
+
+
+@app.route('/cadastrar_cpf', methods=['POST'])
+def protected():
+    auth_header = request.headers.get('Authorization')
+
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Token ausente ou inválido"}), 401
+    
+    data = request.get_json()
+    cpf = data.get('cpf')
+    
+    try:
+        decoded = valid_token(auth_header.split(" ")[1])
+        
+    except:
+        return jsonify({"error": "Token ausente ou inválido"}), 401
+
+
+@app.route('/gerar_assinatura', methods=['POST'])
+def assinatura():
+    auth_header = request.headers.get('Authorization')
+
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Token ausente ou inválido"}), 401
+    
+    try:
+        decoded = valid_token(auth_header.split(" ")[1])
+        user_name = decoded.get('username')
+        telefone = get_telfone(user_name)
+        tokens = gerenciar_token(user_name, token)
+        enviar_mensagem(telefone, tokens)
+        
+        return jsonify({"token": tokens}), 200
+        
+    except:
+        return jsonify({"error": "Token ausente ou inválido"}), 401
 
 
 
 
-
-# Rota para obter informações do usuário
 @app.route('/profile')
 def profile():
     access_token = session.get('access_token')
@@ -103,7 +169,7 @@ def profile():
         return redirect(url_for('login'))
 
     headers = {"Authorization": f"Bearer {access_token}"}
-    
+
     # Obtém informações do usuário
     user_info_response = requests.get("https://graph.microsoft.com/v1.0/me", headers=headers)
     user_info = user_info_response.json()
@@ -112,32 +178,35 @@ def profile():
     groups_response = requests.get("https://graph.microsoft.com/v1.0/me/memberOf", headers=headers)
     groups_info = groups_response.json()
 
-    return jsonify({
-        "user_info": user_info,
-        "groups": groups_info.get("value", [])
-    })
+    # Obtém a URL da foto de perfil do usuário
+    photo_response = requests.get("https://graph.microsoft.com/v1.0/me/photo/$value", headers=headers)
+    if photo_response.status_code == 200:
+        # A URL da foto de perfil (sendo mais realista para um sistema local/real seria salvar a foto e gerar um link)
+        photo_url = f"https://graph.microsoft.com/v1.0/me/photo/$value"
+    else:
+        photo_url = "Sem foto de perfil disponível"
 
+    # Simplificando o JSON para retornar apenas as informações necessárias
+    email = user_info.get('userPrincipalName')
+    username, domain = email.split('@')
+    profile_info = {
+        "nome": user_info.get('displayName'),
+        "email": email,
+        "username": username,
+        "grupos": [group["displayName"] for group in groups_info.get("value", [])],
+        "foto_perfil_url": photo_url
+    }
 
-
-
-@app.route('/get_token_autenticacao', methods=['POST'])
-def enviar_mensagem():    
-    data = request.get_json()
-    usuario = data.get('usuario')
-    telefone = get_telfone(usuario)
-    token = gerar_token()
-    tokens = gerenciar_token(usuario, token)
-    enviar_mensagem(telefone, tokens)
-    return jsonify({'token': tokens}), 200
-
-
+    return jsonify(profile_info)
 
 # Rota para logout
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('home'))
-
 # Rodando o aplicativo
+
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
