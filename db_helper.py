@@ -133,6 +133,32 @@ def get_telfone(user_name):
 
 
 
+def insert_funcionario(cpf):
+    try:
+        rb =get_funcionarios_ruby_por_cpf(cpf)[0]
+
+        telefone = str(rb.get('ddd')) + str(rb.get('tel1'))
+        email = user_name +'@grupotapajos.com.br'
+        ativo = True if rb.get('datadesligamento') is None else False
+        dados_funcionario = {
+        "nome": user_name,
+        "nomecompleto": rb.get('nomefuncionario'),
+        "cpf": str(rb.get('numerocpf')),
+        "id_cargo": int(rb.get('idcargo')),
+        "matricula": str(rb.get('matricula')),
+        "cargo": rb.get('descargo'),
+        "local": str(rb.get('local_trabalho')),
+        "ddd": str(rb.get('ddd')),
+        "telefone": telefone,
+        "email": email,
+        "ativo": ativo
+        }
+        upsert_funcionario(dados_funcionario)
+        return dados_funcionario
+    except Exception as e:
+        return None
+    
+
 
 
 

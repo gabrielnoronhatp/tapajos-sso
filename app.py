@@ -135,6 +135,10 @@ def protected():
     
     try:
         decoded = valid_token(auth_header.split(" ")[1])
+        user_dados = insert_funcionario(cpf)
+        if not user_dados:
+            return jsonify({"error": "Erro ao cadastrar o CPF."}), 401
+        return jsonify(user_dados), 200
         
     except:
         return jsonify({"error": "Token ausente ou inválido"}), 401
