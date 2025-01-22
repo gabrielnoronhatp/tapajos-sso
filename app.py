@@ -3,20 +3,27 @@ import msal
 import requests
 import jwt
 from db_helper import get_usuario_by_id, get_telfone
+from dotenv import load_dotenv
+load_dotenv()
+
 
 # Configurações do Azure AD
-CLIENT_ID = "4ca15e42-c2a0-41df-81cd-58f485551533"
-CLIENT_SECRET = "e5a8Q~aSOX6woFojIuDCFR6ukR3aSvS6Iah31dfo"
-TENANT_ID = "1d390b0e-fddf-40eb-9c71-9aaab4f5c8d1"
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-SCOPE = ["User.Read", "Group.Read.All", "User.ReadBasic.All", "User.Read.All"]
-REDIRECT_URI = "https://sso.grupotapajos.com.br/callback"
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+TENANT_ID = os.getenv("TENANT_ID")
+AUTHORITY = os.getenv("AUTHORITY")
+SCOPE = ["User.Read", "GroupMember.Read.All"]  # Permissões necessárias
+REDIRECT_URI = os.getenv("REDIRECT_URI")
+SCOPE = os.getenv("REDSCOPEIRECT_URI")
 
 
 
 # Inicializa o aplicativo Flask
 app = Flask(__name__)
-app.secret_key = "#@sua_chave_secreta###"  # Substitua por uma chave secreta segura
+app.secret_key = os.getenv("FLASK_SECRET_KEY")  # Substitua por uma chave secreta segura
+
+
+
 
 # Função para criar uma instância do cliente MSAL
 def get_msal_app():
